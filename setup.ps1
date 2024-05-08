@@ -42,14 +42,14 @@ New-Item -ItemType Directory -Path "templates\$appName" -Force
 # Add content to views.py
 Set-Content -Path "views.py" -Value @"
 from django.shortcuts import render
-from .models import ExampleModel
+from .models import User
 
 def index(request):
     return render(request, '$appName/base.html')
 
 def home_view(request):
-    data = ExampleModel.objects.all()
-    return render(request, '$appName/home.html', {'data': data})
+    users = User.objects.all()
+    return render(request, '$appName/home.html', {'users': users})
 
 "@
 
@@ -59,13 +59,14 @@ from django.db import models
 from django.contrib.auth.models import User
 
 # Create your models here.
-class ExampleModel(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100)
-    description = models.TextField()
+class User(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.first_name} {self.last_name}"
+
 
 "@
 
@@ -164,13 +165,15 @@ cd "templates\$appName"
 
 {% block content %}
     <h1>Welcome to the Home Page</h1>
-    <p>This is a simple Django-powered page.</p>
-    {% for item in data %}
-        <div class="item">
-            <h2>{{ item.name }}</h2>
-            <p>{{ item.description }}</p>
-        </div>
-    {% endfor %}
+    <p>This is a simple Django-powered page automated by Ayoub Afi.</p>
+    <p>THe aim of this project is to help you get started with Django quickly.</p>
+    <p>Feel free to explore the site and check out the user list.</p>
+    <h1>User List</h1>
+    <ul>
+        {% for user in users %}
+        <li>{{ user.first_name }} {{ user.last_name }} - {{ user.email }}</li>
+        {% endfor %}
+    </ul>
 {% endblock %}
 
 "@ -replace "appName", $appName | Out-File "home.html" -Encoding utf8
@@ -288,39 +291,59 @@ New-Item -ItemType Directory -Path "static" -Force
 @"
 body {
     background-color: #f8f9fa;
+    padding-top: 70px;
+
 }
 .navbar {
     border-bottom: 2px solid #dee2e6;
 }
+
+.footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background-color: #f5f5f5;
+    padding: 10px 0;
+    text-align: center;
+}
+
+h1 {
+    color: #333;
+}
+
+h2 {
+    color: #666;
+}
+
+p {
+    color: #999;
+}
+
 "@ | Out-File -Encoding utf8 -FilePath "static/custom.css"
 
 #create a faker file
 @"
-from faker import Faker
-import random
 import os
 import django
+from faker import Faker
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', '$projectName.settings')
 django.setup()
 
-from $appName.models import ExampleModel
-from django.contrib.auth.models import User
+from $appName.models import User
 
-fake = Faker()
-
-def create_users():
-    for _ in range(10):
-        User.objects.create_user(username=fake.user_name(), email=fake.email(), password=fake.password())
-
-def create_example_models():
-    users = User.objects.all()
-    for _ in range(20):
-        ExampleModel.objects.create(user=random.choice(users), name=fake.name(), description=fake.text())
+def populate(N=10):
+    fake = Faker()
+    for _ in range(N):
+        first_name = fake.first_name()
+        last_name = fake.last_name()
+        email = fake.email()
+        User.objects.create(first_name=first_name, last_name=last_name, email=email)
 
 if __name__ == '__main__':
-    create_users()
-    create_example_models()
+    print("Populating the database...please wait.")
+    populate(20)
+    print("Populating complete.")
 
 "@ | Out-File "generate_data.py" -Encoding utf8
 
