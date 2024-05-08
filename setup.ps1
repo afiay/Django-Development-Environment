@@ -49,6 +49,7 @@ def index(request):
 
 def home_view(request):
     data = ExampleModel.objects.all()
+    return render(request, '$appName/home.html', {'data': data})
 
 "@
 
