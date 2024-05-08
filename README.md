@@ -1,6 +1,8 @@
 # Django Project Automated Setup
 
-This README details the process of using a PowerShell script to automate the setup of a Django project, including the creation of a virtual environment, installation of dependencies, and starting the project with a custom User model.
+The application leverages a PowerShell script to fully automate the setup of a Django environment, streamlining the initial development process significantly. This automation script is designed to execute a series of commands that systematically set up a Python virtual environment, install necessary dependencies, initialize a Django project and app, and configure the database with a pre-defined User model.
+
+
 
 ## Overview
 
