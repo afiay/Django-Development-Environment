@@ -62,7 +62,9 @@ New-Item -ItemType Directory -Path "templates\$appName" -Force | Out-Null
 Set-Content -Path "views.py" -Value @"
 from django.shortcuts import render
 from .models import User
-from .forms import UserForm
+from .models import Category, Product, Review, Wishlist, Promotion, ShippingMethod, Order, OrderItem, Address, Payment
+from .serializers import CategorySerializer, ProductSerializer, ReviewSerializer, WishlistSerializer, PromotionSerializer, ShippingMethodSerializer, OrderSerializer, OrderItemSerializer, AddressSerializer, PaymentSerializer
+from rest_framework import viewsets
 
 def index(request):
     return render(request, '$appName/base.html')
@@ -71,14 +73,55 @@ def home_view(request):
     users = User.objects.all()
     return render(request, '$appName/home.html', {'users': users})
 
-def form_view(request):
-    if request.method == 'POST':
-        form = UserForm(request.POST)
-        if form.is_valid():
-            form.save()
-    else:
-        form = UserForm()
-    return render(request, '$appName/form.html', {'form': form})
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+
+
+class WishlistViewSet(viewsets.ModelViewSet):
+    queryset = Wishlist.objects.all()
+    serializer_class = WishlistSerializer
+
+
+class PromotionViewSet(viewsets.ModelViewSet):
+    queryset = Promotion.objects.all()
+    serializer_class = PromotionSerializer
+
+
+class ShippingMethodViewSet(viewsets.ModelViewSet):
+    queryset = ShippingMethod.objects.all()
+    serializer_class = ShippingMethodSerializer
+
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+
+
+class OrderItemViewSet(viewsets.ModelViewSet):
+    queryset = OrderItem.objects.all()
+    serializer_class = OrderItemSerializer
+
+
+class AddressViewSet(viewsets.ModelViewSet):
+    queryset = Address.objects.all()
+    serializer_class = AddressSerializer
+
+
+class PaymentViewSet(viewsets.ModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
 "@
 
 # add content to models.py
@@ -273,25 +316,84 @@ from . import views
 
 urlpatterns = [
     path('', views.home_view, name='home'),
-    # form view
-    path('form/', views.form_view, name='form'),
 ]
 "@
 
-# Create urls.py and add content
+# Create forms.py and add content
 Set-Content -Path "forms.py" -Value @"
 from django import forms
 from .models import User
 
-class UserForm(forms.ModelForm):
+"@
+
+# Create serializers.py and add content
+Set-Content -Path "serializers.py" -Value @"
+from rest_framework import serializers
+from .models import Category, Product, Review, Wishlist, Promotion, ShippingMethod, Order, OrderItem, Address, Payment
+
+
+class CategorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
-        fields = ['first_name', 'last_name', 'email']
-        widgets = {
-            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-        }
+        model = Category
+        fields = '__all__'
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = '__all__'
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Review
+        fields = '__all__'
+
+
+class WishlistSerializer(serializers.ModelSerializer):
+    products = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ['user', 'products']
+
+
+class PromotionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Promotion
+        fields = '__all__'
+
+
+class ShippingMethodSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShippingMethod
+        fields = '__all__'
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = '__all__'
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = '__all__'
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = '__all__'
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = '__all__'
+
+
 "@
 # Navigate into the templates directory
 cd "templates\$appName"
@@ -436,7 +538,20 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+
 ]
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -501,10 +616,27 @@ from django.contrib import admin
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework.routers import DefaultRouter
+from $appName.views import CategoryViewSet, ProductViewSet, ReviewViewSet, WishlistViewSet, PromotionViewSet, ShippingMethodViewSet, OrderViewSet, OrderItemViewSet, AddressViewSet, PaymentViewSet
+
+
+# Create a router and register our viewsets with it.
+router = DefaultRouter()
+router.register(r'categories', CategoryViewSet)
+router.register(r'products', ProductViewSet)
+router.register(r'reviews', ReviewViewSet)
+router.register(r'wishlists', WishlistViewSet)
+router.register(r'promotions', PromotionViewSet)
+router.register(r'shippingmethods', ShippingMethodViewSet)
+router.register(r'orders', OrderViewSet)
+router.register(r'orderitems', OrderItemViewSet)
+router.register(r'addresses', AddressViewSet)
+router.register(r'payments', PaymentViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('$appName.urls')),
+    path('api/', include(router.urls)),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 "@ | Out-File $urlsPath -Encoding utf8
@@ -522,57 +654,47 @@ body {
     background-color: #f4f4f9; /* Light grey background for a softer look */
     color: #333; /* Dark grey text for better readability */
 }
-
 /* Navbar tweaks for better visual separation */
 .navbar {
     background-color: #0056b3; /* A deeper blue for contrast */
     box-shadow: 0 2px 4px rgba(0,0,0,.1); /* Subtle shadow for depth */
 }
-
 /* Main container adjustments */
 .container {
     padding-top: 2rem; /* More space on the top inside the container */
     padding-bottom: 2rem; /* More space at the bottom for separation */
 }
-
 /* Headings styling */
 h1.display-4 {
     font-size: 2.5rem; /* More appropriate size for desktop and mobile */
     color: #004085; /* Dark blue for a professional look */
 }
-
 h2 {
     color: #0056b3; /* Consistent theme color for headings */
     margin-bottom: 1rem; /* Space below subheadings */
 }
-
 /* Paragraph text styling */
 p.lead {
     font-size: 1.1rem; /* Slightly larger for lead paragraphs */
     color: #555; /* Soft black for less harshness */
 }
-
 /* User list styles */
 .list-group-item {
     background-color: #fff; /* White background for list items */
     border-left: 3px solid #007bff; /* Blue accent on the left for visual interest */
     margin-bottom: .5rem; /* Space between list items */
 }
-
 .list-group-item-action:hover {
     background-color: #f8f9fa; /* Light feedback on hover */
 }
-
 /* Link styling */
 a {
     color: #0056b3; /* Links styled with theme color */
     text-decoration: none; /* No underline for a cleaner look */
 }
-
 a:hover {
     color: #004185; /* Darker blue on hover for distinction */
 }
-
 "@ | Out-File -Encoding utf8 -FilePath "static/custom.css"
 
 #create a faker file
@@ -587,10 +709,8 @@ from django.utils import timezone
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', '$projectName.settings')
 django.setup()
 
-
 from django.contrib.auth.models import User
 from $appName.models import Category, Product, Review, Wishlist, Promotion, ShippingMethod, Order, OrderItem, Address, Payment
-
 
 fake = Faker()
 
@@ -717,8 +837,6 @@ if __name__ == "__main__":
 
 "@ | Out-File "generate_data.py" -Encoding utf8
 
-
-
 #--------------------------------------------
 # Create the .env file with user-defined settings
 @"
@@ -750,7 +868,6 @@ python generate_data.py
 
 # Wait for 5 seconds
 Start-Sleep -Seconds 5
-python manage.py collectstatic
 
 
 # Completing setup
