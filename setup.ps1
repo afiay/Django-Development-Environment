@@ -11,6 +11,12 @@ $adminPassword = Read-Host "Enter the superuser's password" -AsSecureString
 $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($adminPassword)
 $adminPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
 
+# Get user input for environment variables
+$debug = Read-Host "Enter DEBUG setting (True/False)"
+$secretKey = Read-Host "Enter your SECRET_KEY"
+$allowedHosts = Read-Host "Enter ALLOWED_HOSTS (comma-separated, no spaces)"
+$databaseUrl = Read-Host "Enter DATABASE_URL"
+
 Write-Host "Creating virtual environment..." -ForegroundColor Cyan
 # Create a virtual environment
 python -m venv $envName
@@ -29,7 +35,8 @@ Pillow
 djangorestframework
 gunicorn
 faker
-python-decouple
+python-dotenv
+
 "@ | Out-File requirements.txt
 
 # Install requirements from the requirements.txt file
@@ -409,13 +416,17 @@ Remove-Item $settingsPath
 # Create a new settings.py file with the necessary configurations
 @"
 import os
-from decouple import config
+from dotenv import load_dotenv
+
+# Load the .env file
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=lambda v: [s.strip() for s in v.split(',')])
+SECRET_KEY = os.getenv('SECRET_KEY')
+DEBUG = os.getenv('DEBUG') == 'True'
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',') if os.getenv('ALLOWED_HOSTS') else []
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 INSTALLED_APPS = [
     '$appName',
@@ -709,18 +720,17 @@ if __name__ == "__main__":
 
 
 #--------------------------------------------
-
-#create a faker file
+# Create the .env file with user-defined settings
 @"
-DEBUG=True
-SECRET_KEY=980328930293890uoiuYuyt&(Y&*^%&^&)989767yugy7
-DEBUG=True
-ALLOWED_HOSTS=.localhost,127.0.0.1
-DATABASE_URL=sqlite:///db.sqlite3
-
+DEBUG=$debug
+SECRET_KEY=$secretKey
+ALLOWED_HOSTS=$allowedHosts
+DATABASE_URL=$databaseUrl
 "@ | Out-File ".env" -Encoding utf8
 
+Write-Host ".env file created successfully." -ForegroundColor Green
 #--------------------------------------------
+
 # Make migrations
 python manage.py makemigrations
 
@@ -740,6 +750,7 @@ python generate_data.py
 
 # Wait for 5 seconds
 Start-Sleep -Seconds 5
+python manage.py collectstatic
 
 
 # Completing setup
