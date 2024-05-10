@@ -61,10 +61,45 @@ New-Item -ItemType Directory -Path "templates\$appName" -Force | Out-Null
 # Add content to views.py
 Set-Content -Path "views.py" -Value @"
 from django.shortcuts import render
+from django.urls import reverse
+from django.shortcuts import redirect
+from django.contrib import messages
 from .models import User
 from .models import Category, Product, Review, Wishlist, Promotion, ShippingMethod, Order, OrderItem, Address, Payment
 from .serializers import CategorySerializer, ProductSerializer, ReviewSerializer, WishlistSerializer, PromotionSerializer, ShippingMethodSerializer, OrderSerializer, OrderItemSerializer, AddressSerializer, PaymentSerializer
 from rest_framework import viewsets
+from .forms import CategoryForm, ProductForm, ReviewForm, WishlistForm, PromotionForm, ShippingMethodForm, OrderForm, AddressForm, PaymentForm
+
+
+FORM_CLASSES = {
+    'category': CategoryForm,
+    'product': ProductForm,
+    'review': ReviewForm,
+    'wishlist': WishlistForm,
+    'promotion': PromotionForm,
+    'shippingmethod': ShippingMethodForm,
+    'order': OrderForm,
+    'address': AddressForm,
+    'payment': PaymentForm
+}
+
+def form(request, form_type):
+    FormClass = FORM_CLASSES.get(form_type)
+    if not FormClass:
+        return render(request, '404.html', status=404)
+
+    if request.method == 'POST':
+        form = FormClass(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'{form_type.capitalize()} saved successfully!')
+            return redirect(reverse('form', args=[form_type]))
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = FormClass()
+
+    return render(request, '$appName/form.html', {'form': form, 'form_type': form_type})
 
 def index(request):
     return render(request, '$appName/base.html')
@@ -122,6 +157,7 @@ class AddressViewSet(viewsets.ModelViewSet):
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
+
 "@
 
 # add content to models.py
@@ -311,18 +347,65 @@ admin.site.register(Payment, PaymentAdmin)
 # Create urls.py and add content
 Set-Content -Path "urls.py" -Value @"
 from django.urls import path
-
 from . import views
+from .views import form
 
 urlpatterns = [
     path('', views.home_view, name='home'),
+    path('form/<str:form_type>/', form, name='form'),
 ]
 "@
 
 # Create forms.py and add content
 Set-Content -Path "forms.py" -Value @"
+# forms.py
 from django import forms
-from .models import User
+from .models import Category, Product, Review, Wishlist, Promotion, ShippingMethod, Order, Address, Payment
+
+class CategoryForm(forms.ModelForm):
+    class Meta:
+        model = Category
+        fields = ['name', 'slug', 'description']
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ['category', 'name', 'slug', 'description', 'price', 'image', 'stock', 'available']
+
+class ReviewForm(forms.ModelForm):
+    class Meta:
+        model = Review
+        fields = ['product', 'content', 'rating']
+
+class WishlistForm(forms.ModelForm):
+    class Meta:
+        model = Wishlist
+        fields = ['user', 'products']
+
+class PromotionForm(forms.ModelForm):
+    class Meta:
+        model = Promotion
+        fields = ['product', 'description', 'discount', 'start_date', 'end_date']
+
+class ShippingMethodForm(forms.ModelForm):
+    class Meta:
+        model = ShippingMethod
+        fields = ['name', 'cost', 'time_to_delivery']
+
+class OrderForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = ['user', 'ref_code', 'shipping_method']
+
+class AddressForm(forms.ModelForm):
+    class Meta:
+        model = Address
+        fields = ['user', 'street_address', 'apartment_address', 'zip', 'city', 'country', 'address_type']
+
+class PaymentForm(forms.ModelForm):
+    class Meta:
+        model = Payment
+        fields = ['stripe_charge_id', 'user', 'amount']
 
 "@
 
@@ -488,20 +571,37 @@ cd "templates\$appName"
 @"
 {% extends 'appName/base.html' %}
 
-{% block title %}Add User{% endblock %}
+{% block title %}{{ form_type | title }}{% endblock %}
 
+{% block title %}Add {{ form_type | title }}{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1 class="display-4">Add a New User</h1>
-    <p class="lead">Use the form below to add a new user to the database.</p>
-    <form method="POST">
+<div class="container mt-4">
+    <h1 class="mb-3">Manage {{ form_type | title }}</h1>
+    {% if messages %}
+        <div class="alert alert-info" role="alert">
+            {% for message in messages %}
+            <p>{{ message }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+    <form method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
         {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-primary">Add User</button>
+        <div class="form-group">
+            {% for field in form %}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field.errors }}
+            {{ field }}
+            {% if field.help_text %}
+            <small class="form-text text-muted">{{ field.help_text }}</small>
+            {% endif %}
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary">Submit</button>
     </form>
 </div>
 {% endblock %}
+
 "@ -replace "appName", $appName | Out-File "form.html" -Encoding utf8
 # Navigate back to the project root directory
 cd ../../..
