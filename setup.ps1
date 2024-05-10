@@ -573,8 +573,6 @@ cd "templates\$appName"
 
 {% block title %}{{ form_type | title }}{% endblock %}
 
-{% block title %}Add {{ form_type | title }}{% endblock %}
-
 {% block content %}
 <div class="container mt-4">
     <h1 class="mb-3">Manage {{ form_type | title }}</h1>
